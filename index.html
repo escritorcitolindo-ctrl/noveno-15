@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcards Interactivas de Inglés</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #FFD700;
+            --bg: #F0F4F8;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        #game-container {
+            width: 90%;
+            max-width: 500px;
+            perspective: 1000px;
+        }
+        .card {
+            width: 100%;
+            height: 400px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-sizing: border-box;
+            background: white;
+            text-align: center;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+            background: #E3F2FD;
+        }
+        img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 15px;
+            margin-bottom: 15px;
+        }
+        .text-en { font-size: 24px; font-weight: bold; color: var(--primary); }
+        .text-es { font-size: 24px; font-weight: bold; color: #2E7D32; }
+        .btn-next {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 18px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            display: none;
+            transition: 0.3s;
+        }
+        .btn-next:hover { transform: scale(1.05); background: #357ABD; }
+        #game-over { display: none; text-align: center; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        input { padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin: 10px 0; }
+        #participants-list { margin-top: 20px; text-align: left; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div class="card" id="main-card">
+        <div class="card-face card-front">
+            <img id="img-front" src="" alt="Imagen educativa">
+            <p class="text-en" id="en-phrase"></p>
+        </div>
+        <div class="card-face card-back">
+            <p class="text-es" id="es-phrase"></p>
+        </div>
+    </div>
+</div>
+
+<button class="btn-next" id="next-btn" onclick="nextCard()">SIGUIENTE</button>
+
+<div id="game-over">
+    <h1>GAME OVER</h1>
+    <p>¡Increíble trabajo!</p>
+    <input type="text" id="player-name" placeholder="Ingresa tu nombre">
+    <button onclick="savePlayer()" style="padding:10px 20px; background: #4CAF50; color:white; border:none; border-radius:5px; cursor:pointer;">REGISTRAR</button>
+    <div id="participants-list">
+        <h3>Lista de Participantes:</h3>
+        <ul id="list-items"></ul>
+    </div>
+</div>
+
+<script>
+    const vocabulary = [
+        { en: "Is Amy available right now?", es: "¿Está Amy disponible ahora mismo?", img: "https://images.unsplash.com/photo-1516733725897-1aa73b87c8e8?w=500", sound: "telephone" },
+        { en: "May I borrow your book please?", es: "¿Me puedes prestar tu libro por favor?", img: "https://images.unsplash.com/photo-1544640808-32ca72ac7f37?w=500", sound: "book" },
+        { en: "Can I get you a soda?", es: "¿Te traigo una gaseosa?", img: "https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=500", sound: "drink" },
+        { en: "Would you like to go to the disco tonight?", es: "¿Te gustaría ir a la discoteca esta noche?", img: "https://images.unsplash.com/photo-1545128485-c400e7702796?w=500", sound: "music" },
+        { en: "Can I use your bicycle?", es: "¿Puedo usar tu bicicleta?", img: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=500", sound: "bike" },
+        { en: "Can he speak Chinese?", es: "¿Él habla chino?", img: "https://images.unsplash.com/photo-1525184990524-2d6eb43399fa?w=500", sound: "language" },
+        { en: "Would you like some more coffee?", es: "¿Quieres un poco más de café?", img: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500", sound: "coffee" },
+        { en: "Can you do him a favor please?", es: "¿Le puedes hacer un favor por favor?", img: "https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?w=500", sound: "help" },
+        { en: "May I help you with your bags?", es: "¿Te ayudo con tus maletas?", img: "https://images.unsplash.com/photo-1565043589221-1a6fd9ae45c7?w=500", sound: "bags" },
+        { en: "I want to know if you could lend my brother some money", es: "Quiero saber si podrías prestarle dinero a mi hermano", img: "https://images.unsplash.com/photo-1559599101-f09722fb4948?w=500", sound: "money" }
+    ];
+
+    let currentIndex = 0;
+    let cardFlipped = false;
+    const synth = window.speechSynthesis;
+
+    function speak(text, lang) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang;
+        utterance.rate = 0.9;
+        synth.speak(utterance);
+    }
+
+    function updateCard() {
+        const item = vocabulary[currentIndex];
+        document.getElementById('img-front').src = item.img;
+        document.getElementById('en-phrase').innerText = item.en;
+        document.getElementById('es-phrase').innerText = item.es;
+        document.getElementById('main-card').classList.remove('flipped');
+        document.getElementById('next-btn').style.display = 'none';
+        cardFlipped = false;
+        
+        // Pronunciar lado inglés al cargar
+        setTimeout(() => speak(item.en, 'en-US'), 500);
+    }
+
+    document.getElementById('main-card').addEventListener('click', function() {
+        this.classList.toggle('flipped');
+        const item = vocabulary[currentIndex];
+        
+        if (this.classList.contains('flipped')) {
+            speak(item.es, 'es-EC');
+            if (!cardFlipped) {
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                document.getElementById('next-btn').style.display = 'block';
+                cardFlipped = true;
+            }
+        } else {
+            speak(item.en, 'en-US');
+        }
+    });
+
+    function nextCard() {
+        currentIndex++;
+        if (currentIndex < vocabulary.length) {
+            updateCard();
+        } else {
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('game-over').style.display = 'block';
+            showParticipants();
+        }
+    }
+
+    function savePlayer() {
+        const name = document.getElementById('player-name').value;
+        if (name) {
+            let players = JSON.parse(localStorage.getItem('players') || '[]');
+            players.push(name);
+            localStorage.setItem('players', JSON.stringify(players));
+            document.getElementById('player-name').value = '';
+            showParticipants();
+        }
+    }
+
+    function showParticipants() {
+        const list = document.getElementById('list-items');
+        const players = JSON.parse(localStorage.getItem('players') || '[]');
+        list.innerHTML = players.map(p => `<li>${p}</li>`).join('');
+    }
+
+    // Inicio
+    updateCard();
+</script>
+
+</body>
+</html>
